@@ -32,22 +32,27 @@ module.exports = (proxyAPI) => {
 const schema = [
     {
         label: 'Show Unresolved Nicks',
-        defaults: { showUnresolvedNicks: false },
-        settings: [{
-            type: 'toggle',
-            key: 'showUnresolvedNicks',
-            text: ['OFF', 'ON'],
-            description: 'If enabled, shows an alert for players who are likely nicked but could not be resolved to a real name.'
-        }]
+        defaults: { showUnresolvedNicks: { enabled: false } },
+        settings: [
+            {
+                type: 'toggle',
+                key: 'showUnresolvedNicks.enabled',
+                text: ['OFF', 'ON'],
+                description: 'If enabled, shows an alert for players who are likely nicked but could not be resolved to a real name.'
+            }
+        ]
     },
     {
         label: 'Audio Alerts',
-        defaults: { audioAlerts: true },
-        settings: [{
-            type: 'soundToggle',
-            key: 'audioAlerts',
-            description: 'Plays a sound when an alert is triggered.'
-        }]
+        defaults: { audioAlerts: { enabled: true } },
+        settings: [
+            {
+                type: 'toggle',
+                key: 'audioAlerts.enabled',
+                text: ['OFF', 'ON'],
+                description: 'Plays a sound when an alert is triggered.'
+            }
+        ]
     },
     {
         label: 'Alert Delay',
@@ -57,11 +62,12 @@ const schema = [
                 type: 'cycle',
                 key: 'alertDelay',
                 description: 'The delay in milliseconds before sending a denick alert.',
+                displayLabel: 'Delay',
                 values: [
-                    { text: ['(', '0ms', ')'], value: 0 },
-                    { text: ['(', '500ms', ')'], value: 500 },
-                    { text: ['(', '1000ms', ')'], value: 1000 },
-                    { text: ['(', '2000ms', ')'], value: 2000 }
+                    { text: '0ms', value: 0 },
+                    { text: '500ms', value: 500 },
+                    { text: '1000ms', value: 1000 },
+                    { text: '2000ms', value: 2000 }
                 ]
             }
         ]
@@ -77,8 +83,8 @@ class DenickerSystem {
         this.DEBUG_PREFIX = `[${PLUGIN_INFO.displayName}-Debug]`;
 
         this.config = {
-            showUnresolvedNicks: true,
-            audioAlerts: true,
+            showUnresolvedNicks: { enabled: true },
+            audioAlerts: { enabled: true },
             alertDelay: 1000,
         };
 
@@ -197,7 +203,7 @@ class DenickerSystem {
             if (KNOWN_NICK_SKINS.has(hash)) {
                 this.proxyAPI.debugLog(`Detected unresolved nick: ${player.name}`);
                 this.storeNickInfo(player, null);
-                if (this.config.showUnresolvedNicks) {
+                if (this.config.showUnresolvedNicks.enabled) {
                     this.sendAlert(player.name, null);
                 }
                 return;
@@ -260,7 +266,7 @@ class DenickerSystem {
                 : `§c${cleanPlayerName}§7 is nicked.`;
             this.proxyAPI.sendChatMessage(this.proxyAPI.currentPlayer.client, `${this.PLUGIN_PREFIX} ${alertMsg}`);
 
-            if (this.config.audioAlerts && this.userPosition) {
+            if (this.config.audioAlerts.enabled && this.userPosition) {
                 this.proxyAPI.sendToClient('named_sound_effect', {
                     soundName: 'note.pling',
                     x: this.userPosition.x * 8,

@@ -26,9 +26,11 @@ const THEME = {
     accent: '§b',    // Aqua - Values, highlights, clickable elements
     success: '§a',   // Green - Success messages, positive status
     error: '§c',     // Red - Error messages, negative status
+    danger: '§4',    // Dark Red - Destructive actions, reset
     info: '§9',      // Blue - Information, descriptions
     special: '§5',   // Purple - Headers, special elements
     muted: '§8',     // Dark Gray - Less important text, separators
+    strikethrough: '§m', // Strikethrough effect
     text: '§7',      // Gray - Regular text content
     none: '§f'     // White - Default
 };
@@ -263,6 +265,7 @@ class CommandHandler {
                 return;
             }
             
+            chat.text('-----------------------------------------------------', THEME.muted + THEME.strikethrough).newline();
             chat.text(`Help: ${displayName}`, THEME.primary).text(` - `, THEME.muted)
                 .text(`/${moduleName} ${cmd.name()}`, THEME.primary).newline().newline();
             
@@ -284,8 +287,7 @@ class CommandHandler {
                 cmd._metadata.arguments.forEach(arg => {
                     const argType = arg.optional ? 'Optional' : 'Required';
                     
-                    chat.text('  ')
-                        .text(arg.usage, THEME.primary)
+                    chat.text(arg.usage, THEME.primary)
                         .text(` (${argType})`, THEME.info);
                     
                     if (arg.description) {
@@ -300,8 +302,7 @@ class CommandHandler {
             if (cmd.options.length > 0) {
                 chat.text('Options:', THEME.secondary).newline();
                 cmd.options.forEach(opt => {
-                    chat.text('  ')
-                        .text(opt.flags, THEME.primary)
+                    chat.text(opt.flags, THEME.primary)
                         .text(' - ', THEME.muted)
                         .text(opt.description, THEME.text)
                         .newline();
@@ -331,11 +332,8 @@ class CommandHandler {
             const startIndex = (page - 1) * pageSize;
             const pageCommands = commands.slice(startIndex, startIndex + pageSize);
             
-            chat.text(`------ ${THEME.primary}${displayName} Commands${THEME.muted} ------`, THEME.muted);
-            if (totalPages > 1) {
-                chat.text(` (Page ${page}/${totalPages})`, THEME.muted);
-            }
-            chat.newline();
+            chat.text('-----------------------------------------------------', THEME.muted + THEME.strikethrough).newline();
+            chat.text(`${displayName} Commands`, THEME.primary).newline();
             
             pageCommands.forEach((cmd, index) => {
                 let usage = `/${moduleName} ${cmd.name()}`;
@@ -382,33 +380,42 @@ class CommandHandler {
             });
 
             if (totalPages > 1) {
-                chat.text('         ', THEME.muted);
+                chat.text('[', THEME.text);
                 if (page > 1) {
-                    chat.runButton('[<<<]', `/${moduleName} help --page ${page - 1}`, `Go to page ${page - 1}`, THEME.text);
+                    chat.runButton('«', `/${moduleName} help --page 1`, 'Go to first page', THEME.primary);
                 } else {
-                    chat.text('[<<<]', THEME.muted);
+                    chat.text('«', THEME.muted);
                 }
-                chat.space();
+                chat.text('] [', THEME.text);
                 
-                for (let i = 1; i <= totalPages; i++) {
-                    if (i === page) {
-                        chat.text(`[${i}]`, THEME.primary);
-                    } else {
-                        chat.runButton(`${i}`, `/${moduleName} help --page ${i}`, `Go to page ${i}`, THEME.text);
-                    }
-                    chat.space();
+                if (page > 1) {
+                    chat.runButton('<', `/${moduleName} help --page ${page - 1}`, `Go to page ${page - 1}`, THEME.primary);
+                } else {
+                    chat.text('<', THEME.muted);
                 }
+                
+                chat.text('] ', THEME.text);
+                chat.text(`Page ${page}/${totalPages}`, THEME.secondary);
+                chat.text(' [', THEME.text);
                 
                 if (page < totalPages) {
-                    chat.runButton('[>>>]', `/${moduleName} help --page ${page + 1}`, `Go to page ${page + 1}`, THEME.text);
+                    chat.runButton('>', `/${moduleName} help --page ${page + 1}`, `Go to page ${page + 1}`, THEME.primary);
                 } else {
-                    chat.text('[>>>]', THEME.muted);
+                    chat.text('>', THEME.muted);
                 }
+                
+                chat.text('] [', THEME.text);
+                if (page < totalPages) {
+                    chat.runButton('»', `/${moduleName} help --page ${totalPages}`, 'Go to last page', THEME.primary);
+                } else {
+                    chat.text('»', THEME.muted);
+                }
+                chat.text(']', THEME.text);
                 chat.newline();
             }
-            chat.text('-----------------------------------', THEME.muted);
         }
 
+        chat.text('-----------------------------------------------------', THEME.muted + THEME.strikethrough);
         chat.send();
     }
 
@@ -572,199 +579,150 @@ class CommandHandler {
 
         const chat = new ChatBuilder(this, client);
 
-        chat.text(`------ ${THEME.primary}${title}${THEME.muted} ------`, THEME.muted);
-        if (totalPages > 1) {
-            chat.text(` (Page ${currentPage}/${totalPages})`, THEME.muted);
-        }
-        chat.newline();
+        chat.text('-----------------------------------------------------', THEME.muted + THEME.strikethrough).newline();
+        chat.text(title, THEME.primary).newline();
 
         pageSchema.forEach(item => {
-            const isLineEnabled = item.isEnabled ? item.isEnabled(config) : true;
-            const labelColor = isLineEnabled ? THEME.secondary : THEME.muted;
-            const mainColor = isLineEnabled ? THEME.text : THEME.muted;
+            const mainToggleSetting = item.settings.find(s => s.type === 'toggle' && s.key.endsWith('enabled'));
+            const otherSettings = mainToggleSetting ? item.settings.filter(s => s.key !== mainToggleSetting.key) : item.settings;
+
+            // Check if this item has enable/disable functionality
+            const hasEnableDisable = mainToggleSetting || item.settings.some(s => s.type === 'toggle');
+            const isLineEnabled = mainToggleSetting ? getProperty(config, mainToggleSetting.key) : (item.isEnabled ? item.isEnabled(config) : true);
             
-            let hoverText = `${THEME.accent}${item.label}\n`;
-            hoverText += `${THEME.muted}--------------------------\n`;
-            
-            const hasDescription = item.settings.some(setting => setting.description);
-            if (hasDescription) {
-                const mainSetting = item.settings.find(setting => setting.description);
-                if (mainSetting) {
-                    hoverText += `${THEME.info}${mainSetting.description}\n\n`;
+            if (hasEnableDisable) {
+                // This item has enable/disable functionality
+                const toggleText = isLineEnabled ? '[+]' : '[-]';
+                const toggleColor = isLineEnabled ? THEME.success : THEME.error;
+
+                if (mainToggleSetting) {
+                    const command = `${baseCommand} --set ${mainToggleSetting.key}=${!isLineEnabled} --page ${currentPage}`;
+                    chat.runButton(toggleText, command, `Click to ${isLineEnabled ? 'disable' : 'enable'}`, toggleColor);
+                } else {
+                    chat.text(toggleText, toggleColor);
                 }
+            } else {
+                // This item doesn't have enable/disable functionality, show a neutral indicator
+                chat.text('[-]', THEME.muted);
             }
+            chat.space();
 
-            if (item.defaults) {
-                hoverText += `${THEME.secondary}Settings:\n`;
-                item.settings.forEach(setting => {
-                    const settingKeyParts = setting.key.split('.');
-                    const settingName = settingKeyParts[settingKeyParts.length - 1];
-                    const defaultValue = getProperty(item.defaults, settingName);
+            let hoverText = `${THEME.accent}${item.label}\n${THEME.muted}--------------------------\n`;
+            const mainDescription = item.settings.find(s => s.description)?.description;
+            if (mainDescription) hoverText += `${THEME.info}${mainDescription}\n\n`;
 
-                    if (defaultValue !== undefined) {
-                         let displayValue = defaultValue;
-                         if (setting.type === 'soundToggle') displayValue = defaultValue ? '♪' : '✘';
-                         else if (setting.type === 'toggle') {
-                             const onText = setting.text ? setting.text[1] : 'ON';
-                             const offText = setting.text ? setting.text[0] : 'OFF';
-                             displayValue = defaultValue ? onText : offText;
-                         }
-                         else if (setting.type === 'cycle') {
-                             const defaultDisplay = setting.values.find(v => v.value === defaultValue);
-                             if (defaultDisplay) displayValue = defaultDisplay.text;
-                         }
-                         hoverText += `${THEME.muted}• ${THEME.primary}${settingName} ${THEME.muted}- ${THEME.text}${displayValue}`;
-                         if (setting.description) {
-                            hoverText += `\n  ${THEME.text}${setting.description}`;
-                         }
-                         hoverText += '\n';
-                    }
-                });
-                hoverText += `\n${THEME.text}Click to modify settings`;
-            }
-            
-            let lineLabel = new ChatBuilder(this, client).text(item.label, labelColor).hover(hoverText);
+            let lineLabel = new ChatBuilder(this, client).text(item.label, THEME.secondary).hover(hoverText);
             chat._components.push(...lineLabel._components);
-
-
-            chat.text(' - ', mainColor);
             
-            item.settings.forEach((setting, index) => {
-                if (index > 0) chat.text(' | ', isLineEnabled ? THEME.muted : THEME.muted);
+            // Always add dash and space after the label
+            chat.text(' -', THEME.text).space();
+
+            otherSettings.forEach((setting, index) => {
+                if (index > 0) chat.text(' | ', THEME.muted);
 
                 const isSettingEnabled = !setting.condition || setting.condition(config);
                 const finalEnabled = isLineEnabled && isSettingEnabled;
-                
-                let settingText = '';
-                let command = '';
-                let settingColor = finalEnabled ? THEME.accent : THEME.muted;
-
                 const currentValue = getProperty(config, setting.key);
-
-                if (setting.displayLabel) {
-                    chat.text(`${setting.displayLabel}: `, finalEnabled ? THEME.text : THEME.muted);
-                }
 
                 switch (setting.type) {
                     case 'toggle':
-                        const onText = setting.text ? setting.text[1] : 'ON';
-                        const offText = setting.text ? setting.text[0] : 'OFF';
-                        settingText = currentValue ? `[${onText}]` : `[${offText}]`;
-                        settingColor = finalEnabled ? (currentValue ? THEME.success : THEME.error) : THEME.muted;
-                        if (finalEnabled) command = `${baseCommand} --set ${setting.key}=${!currentValue} --page ${currentPage}`;
+                        if (setting.key.endsWith('debug')) {
+                            chat.text('(Debug: ', THEME.text);
+                            const command = finalEnabled ? `${baseCommand} --set ${setting.key}=${!currentValue} --page ${currentPage}` : null;
+                            if(finalEnabled) {
+                                chat.runButton(currentValue ? 'ON' : 'OFF', command, 'Toggle Debug Mode', currentValue ? THEME.success : THEME.error);
+                            } else {
+                                chat.text(currentValue ? 'ON' : 'OFF', THEME.muted);
+                            }
+                            chat.text(')', THEME.text);
+                        }
                         break;
                     case 'soundToggle':
-                        settingText = currentValue ? '[♪]' : '[✘]';
-                        settingColor = finalEnabled ? (currentValue ? THEME.special : THEME.error) : THEME.muted;
-                        if (finalEnabled) command = `${baseCommand} --set ${setting.key}=${!currentValue} --page ${currentPage}`;
-                        break;
-                    case 'field':
-                         settingText = `[${currentValue}]`;
-                         if (finalEnabled) command = `${baseCommand} ${setting.command} `;
-                         break;
-                }
-                
-                if (setting.type === 'toggle' || setting.type === 'soundToggle') {
-                    if (finalEnabled) {
-                        chat.runButton(settingText, command, hoverText, settingColor);
-                    } else {
-                        chat.text(settingText, THEME.muted).hover(hoverText);
-                    }
-                } else if (setting.type === 'cycle') {
-                    const currentIndex = setting.values.findIndex(v => v.value === currentValue);
-                    const display = setting.values.find(v => v.value === currentValue) || setting.values[0];
-
-                    if (finalEnabled) {
-                        const nextIndex = (currentIndex + 1) % setting.values.length;
-                        const nextValue = setting.values[nextIndex].value;
-                        command = `${baseCommand} --set ${setting.key}=${nextValue} --page ${currentPage}`;
-                    }
-
-                    if (Array.isArray(display.text)) {
-                        const component = {
-                            text: '',
-                            hoverEvent: { action: 'show_text', value: { text: hoverText } },
-                            extra: []
-                        };
+                        const soundCommand = finalEnabled ? `${baseCommand} --set ${setting.key}=${!currentValue} --page ${currentPage}` : null;
                         if (finalEnabled) {
-                            component.clickEvent = { action: 'run_command', value: command };
-                        }
-                        
-                        const mainColor = finalEnabled ? (display.color || THEME.accent) : THEME.muted;
-                        const textColor = finalEnabled ? THEME.text : THEME.muted;
-                        
-                        component.extra.push({ text: `${textColor}${display.text[0]}` });
-                        component.extra.push({ text: `${mainColor}${display.text[1]}` });
-                        component.extra.push({ text: `${textColor}${display.text[2]}` });
-                        chat._components.push(component);
-                    } else {
-                        const color = finalEnabled ? (display.color || THEME.accent) : THEME.muted;
-                        if (finalEnabled) {
-                            chat.runButton(display.text, command, hoverText, color);
+                            chat.runButton('[♪]', soundCommand, 'Toggle sound notification', THEME.special);
                         } else {
-                            chat.text(display.text, color).hover(hoverText);
+                            chat.text('[♪]', THEME.muted);
                         }
-                    }
-                } else if (setting.type === 'field') {
-                     settingColor = finalEnabled ? THEME.accent : THEME.muted;
-                    if (finalEnabled) {
-                        chat.suggestButton(settingText, command, `Set a new value for ${item.label}`, settingColor);
-                    } else {
-                        chat.text(settingText, settingColor).hover(`Set a new value for ${item.label}`);
-                    }
+                        break;
+                    case 'cycle':
+                        const display = setting.values.find(v => v.value === currentValue) || setting.values[0];
+                        const command = finalEnabled ? `${baseCommand} --set ${setting.key}=${(setting.values[(setting.values.findIndex(v => v.value === currentValue) + 1) % setting.values.length]).value} --page ${currentPage}` : null;
+                        
+                        chat.text('(', THEME.text);
+                        if (setting.displayLabel) {
+                            chat.text(`${setting.displayLabel}: `, THEME.text);
+                        }
+                        if (finalEnabled) {
+                            chat.runButton(display.text, command, `Change ${setting.displayLabel || 'value'}`, THEME.accent);
+                        } else {
+                            chat.text(display.text, THEME.muted);
+                        }
+                        chat.text(')', THEME.text);
+                        break;
                 }
             });
 
-            const hasIndividualReset = !item.resetAll;
-            const hasGlobalReset = item.resetAll;
-
-            if (hasIndividualReset) {
+            // Only add separator if there are other settings
+            if (otherSettings.length > 0) {
                 chat.text(' | ', THEME.muted);
+            }
+            
+            if (!item.resetAll) {
                 const settingKeysOnLine = item.settings.map(s => s.key).join(',');
                 const resetCommand = `${baseCommand} --reset-setting "${settingKeysOnLine}" --page ${currentPage}`;
-                const hover = `${THEME.info}Reset: ${THEME.text}${item.label}`;
                 if (isLineEnabled) {
-                    chat.runButton(`[R]`, resetCommand, hover, THEME.info);
+                    // Individual setting reset buttons are blue
+                    chat.runButton('[R]', resetCommand, `Reset ${item.label} settings`, THEME.info);
                 } else {
-                    chat.text(`[R]`, THEME.muted).hover(hover);
+                    chat.text('[R]', THEME.muted);
                 }
             }
 
-            if (hasGlobalReset) {
-                chat.text(' | ', THEME.muted);
+            if (item.resetAll) {
                 const resetAllCommand = `${baseCommand} --reset-all-confirm --page ${currentPage}`;
-                chat.runButton(`[R]`, resetAllCommand, `${THEME.error}Reset ALL plugin settings to default`, THEME.error);
+                chat.runButton('[R]', resetAllCommand, `${THEME.error}Reset ALL plugin settings to default`, THEME.danger);
             }
 
             chat.newline();
         });
 
         if (totalPages > 1) {
-             chat.text('         ', THEME.muted);
+            chat.text('[', THEME.text);
             if (currentPage > 1) {
-                chat.runButton('[<<<]', `${baseCommand} --page ${currentPage - 1}`, `Go to page ${currentPage - 1}`, THEME.text);
+                chat.runButton('«', `${baseCommand} --page 1`, 'Go to first page', THEME.primary);
             } else {
-                chat.text('[<<<]', THEME.muted);
+                chat.text('«', THEME.muted);
             }
-            chat.space();
-
-            for (let i = 1; i <= totalPages; i++) {
-                if (i === currentPage) {
-                    chat.text(`[${i}]`, THEME.primary);
-                } else {
-                     chat.runButton(`${i}`, `${baseCommand} --page ${i}`, `Go to page ${i}`, THEME.text);
-                }
-                chat.space();
+            chat.text('] [', THEME.text);
+            
+            if (currentPage > 1) {
+                chat.runButton('<', `${baseCommand} --page ${currentPage - 1}`, `Go to page ${currentPage - 1}`, THEME.primary);
+            } else {
+                chat.text('<', THEME.muted);
             }
-
+            
+            chat.text('] ', THEME.text);
+            chat.text(`Page ${currentPage}/${totalPages}`, THEME.secondary);
+            chat.text(' [', THEME.text);
+            
             if (currentPage < totalPages) {
-                chat.runButton('[>>>]', `${baseCommand} --page ${currentPage + 1}`, `Go to page ${currentPage + 1}`, THEME.text);
+                chat.runButton('>', `${baseCommand} --page ${currentPage + 1}`, `Go to page ${currentPage + 1}`, THEME.primary);
             } else {
-                chat.text('[>>>]', THEME.muted);
+                chat.text('>', THEME.muted);
             }
+            
+            chat.text('] [', THEME.text);
+            if (currentPage < totalPages) {
+                chat.runButton('»', `${baseCommand} --page ${totalPages}`, 'Go to last page', THEME.primary);
+            } else {
+                chat.text('»', THEME.muted);
+            }
+            chat.text(']', THEME.text);
             chat.newline();
         }
-        chat.text('-----------------------------------', THEME.muted);
+
+        chat.text('-----------------------------------------------------', THEME.muted + THEME.strikethrough);
         chat.send();
     }
 

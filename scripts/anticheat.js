@@ -65,26 +65,28 @@ const generateSchema = () => {
                         type: 'cycle',
                         key: `checks.${checkName}.vl`,
                         values: [
-                            { text: ['(VL: ', '5', ')'], value: 5 },
-                            { text: ['(VL: ', '10', ')'], value: 10 },
-                            { text: ['(VL: ', '15', ')'], value: 15 },
-                            { text: ['(VL: ', '20', ')'], value: 20 },
-                            { text: ['(VL: ', '30', ')'], value: 30 }
+                            { text: '5', value: 5 },
+                            { text: '10', value: 10 },
+                            { text: '15', value: 15 },
+                            { text: '20', value: 20 },
+                            { text: '30', value: 30 }
                         ],
                         condition: (cfg) => cfg.checks[checkName].enabled,
-                        description: 'Sets the violation level to trigger an alert.'
+                        description: 'Sets the violation level to trigger an alert.',
+                        displayLabel: 'VL'
                     },
                     {
                         type: 'cycle',
                         key: `checks.${checkName}.cooldown`,
                         values: [
-                            { text: ['(CD: ', '0s', ')'], value: 0 },
-                            { text: ['(CD: ', '1s', ')'], value: 1000 },
-                            { text: ['(CD: ', '2s', ')'], value: 2000 },
-                            { text: ['(CD: ', '3s', ')'], value: 3000 }
+                            { text: '0s', value: 0 },
+                            { text: '1s', value: 1000 },
+                            { text: '2s', value: 2000 },
+                            { text: '3s', value: 3000 }
                         ],
                         condition: (cfg) => cfg.checks[checkName].enabled,
-                        description: 'Sets the cooldown between alerts for this check.'
+                        description: 'Sets the cooldown between alerts for this check.',
+                        displayLabel: 'CD'
                     }
                 ]
             });
