@@ -105,6 +105,24 @@ class DenickerSystem {
         this.playerTeams.clear();
     }
 
+    onDisable() {
+        this.reset();
+    }
+
+    onEnable(joinState) {
+        this.reset();
+        if (joinState && Array.isArray(joinState.teamData)) {
+            for (const [team, info] of joinState.teamData) {
+                this.teamData.set(team, info);
+            }
+        }
+        if (joinState && Array.isArray(joinState.playerTeams)) {
+            for (const [playerName, teamName] of joinState.playerTeams) {
+                this.playerTeams.set(playerName, teamName);
+            }
+        }
+    }
+
     registerHandlers() {
         this.proxyAPI.on('serverPacketMonitor', ({ data, meta }) => {
             if (!this.proxyAPI.isPluginEnabled('denicker')) return;

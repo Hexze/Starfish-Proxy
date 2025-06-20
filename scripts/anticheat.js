@@ -641,6 +641,26 @@ class AnticheatSystem {
         this.reset();
     }
 
+    onEnable(joinState) {
+        this.reset();
+        if (joinState && Array.isArray(joinState.playerInfo)) {
+            for (const [uuid, info] of joinState.playerInfo) {
+                this.uuidToName.set(uuid, info.name || uuid);
+                this.uuidToDisplayName.set(uuid, info.displayName || info.name || uuid);
+            }
+        }
+        if (joinState && Array.isArray(joinState.entityData)) {
+            for (const [id, ent] of joinState.entityData) {
+                const player = new PlayerData(this.uuidToName.get(ent.uuid) || '', ent.uuid, id);
+                if (ent.position) {
+                    player.updatePosition(ent.position.x, ent.position.y, ent.position.z, ent.onGround, ent.yaw, ent.pitch);
+                }
+                this.players.set(ent.uuid, player);
+                this.entityToPlayer.set(id, player);
+            }
+        }
+    }
+
     reset() {
         this.players.clear();
         this.entityToPlayer.clear();

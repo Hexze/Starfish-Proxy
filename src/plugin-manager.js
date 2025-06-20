@@ -19,13 +19,28 @@ class PluginManager {
      * @param {Object|null} instance - The plugin's class instance
      */
     registerPlugin(pluginInfo, instance = null) {
-        if (pluginInfo && pluginInfo.name) {    
-            const normalizedName = pluginInfo.name.toLowerCase();
-            this.plugins.set(normalizedName, { info: pluginInfo, instance });
-            this.pluginStates.set(normalizedName, true);
+        if (!pluginInfo || !pluginInfo.name) return;
+
+        const normalizedName = pluginInfo.name.toLowerCase();
+
+        const handlers = this.pluginEventHandlers.get(normalizedName) || new Set();
+
+        this.plugins.set(normalizedName, { info: pluginInfo, instance });
+        this.pluginStates.set(normalizedName, true);
+        if (!this.pluginDebugStates.has(normalizedName)) {
             this.pluginDebugStates.set(normalizedName, false);
-            this.pluginEventHandlers.set(normalizedName, new Set());
-            console.log(`Registered plugin: ${pluginInfo.name} (enabled)`);
+        }
+        this.pluginEventHandlers.set(normalizedName, handlers);
+
+        console.log(`Registered plugin: ${pluginInfo.name} (enabled)`);
+
+        if (instance && typeof instance.onEnable === 'function' && this.proxyManager.currentPlayer) {
+            try {
+                const state = this.proxyManager.getJoinState();
+                instance.onEnable(state);
+            } catch (e) {
+                console.error(`Error during onEnable for ${normalizedName}:`, e);
+            }
         }
     }
 
@@ -39,16 +54,28 @@ class PluginManager {
             return false;
         }
         
+        const previouslyEnabled = this.pluginStates.get(pluginName);
         this.pluginStates.set(pluginName, enabled);
-        
-        // If disabling, notify the plugin instance so it can clean up.
-        if (!enabled) {
-            const pluginData = this.plugins.get(pluginName);
+
+        const pluginData = this.plugins.get(pluginName);
+
+        if (!enabled && previouslyEnabled) {
             if (pluginData.instance && typeof pluginData.instance.onDisable === 'function') {
                 try {
                     pluginData.instance.onDisable();
                 } catch (e) {
                     console.error(`Error during onDisable for ${pluginName}:`, e);
+                }
+            }
+        }
+
+        if (enabled && !previouslyEnabled) {
+            if (pluginData.instance && typeof pluginData.instance.onEnable === 'function') {
+                try {
+                    const state = this.proxyManager.getJoinState();
+                    pluginData.instance.onEnable(state);
+                } catch (e) {
+                    console.error(`Error during onEnable for ${pluginName}:`, e);
                 }
             }
         }
@@ -241,14 +268,29 @@ class PluginManager {
      * @returns {Object} - Plugin-specific API wrapper
      */
     createPluginAPI(filename) {
-        const pluginName = path.basename(filename, '.js');
+        let pluginName = path.basename(filename, '.js');
         
         const pluginAPI = {
             get currentPlayer() { return this.proxyAPI.currentPlayer; },
             sendToClient: (...args) => this.proxyAPI.sendToClient(...args),
             sendToServer: (...args) => this.proxyAPI.sendToServer(...args),
             sendChatMessage: (...args) => this.proxyAPI.sendChatMessage(...args),
-            registerPlugin: (pluginInfo, instance = null) => this.registerPlugin(pluginInfo, instance),
+            registerPlugin: (pluginInfo, instance = null) => {
+                if (pluginInfo && pluginInfo.name) {
+                    const newName = pluginInfo.name.toLowerCase();
+                    if (newName !== pluginName) {
+                        const oldHandlers = this.pluginEventHandlers.get(pluginName);
+                        if (oldHandlers) {
+                            const existing = this.pluginEventHandlers.get(newName) || new Set();
+                            for (const h of oldHandlers) existing.add(h);
+                            this.pluginEventHandlers.set(newName, existing);
+                            this.pluginEventHandlers.delete(pluginName);
+                        }
+                        pluginName = newName;
+                    }
+                }
+                return this.registerPlugin(pluginInfo, instance);
+            },
             getLoadedPlugins: (...args) => this.getLoadedPlugins(...args),
             registerCommands: (...args) => this.proxyAPI.registerCommands(...args),
             kickPlayer: (...args) => this.proxyAPI.kickPlayer(...args),

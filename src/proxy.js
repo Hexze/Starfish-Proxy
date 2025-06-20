@@ -4,17 +4,16 @@
  */
 
 const mc = require('minecraft-protocol');
-const EventEmitter = require('events');
 const path = require('path');
 const fs =require('fs');
 
 const AuthManager = require('./auth');
 const CommandHandler = require('./command-handler');
 const PluginManager = require('./plugin-manager');
+const GameState = require('./game-state');
+const { PluginAPI, PROXY_NAME } = require('./plugin-api');
 
 const PROXY_VERSION = '1.8.9';
-const PROXY_NAME = '§6S§eta§fr§bfi§3sh §5Proxy§r';
-const PROXY_PREFIX = '§6S§eta§fr§bfi§3sh';
 
 const DEFAULT_CONFIG = {
     proxyPort: 25565,
@@ -69,111 +68,16 @@ function loadConfig() {
  * 
  * For maximum performance, use Monitor events unless you need to cancel/modify packets.
  */
-class ProxyAPI extends EventEmitter {
-    constructor(proxyManager) {
-        super();
-        this.proxyManager = proxyManager;
-    }
-    
-    get currentPlayer() {
-        return this.proxyManager.currentPlayer;
-    }
-
-    get proxyName() {
-        return PROXY_NAME;
-    }
-
-    get proxyPrefix() {
-        return PROXY_PREFIX;
-    }
-
-    sendToClient(metaName, data) {
-        if (!this.currentPlayer?.client) return false;
-            this.currentPlayer.client.write(metaName, data);
-            return true;
-    }
-
-    sendToServer(metaName, data) {
-        if (!this.currentPlayer?.targetClient) return false;
-            this.currentPlayer.targetClient.write(metaName, data);
-            return true;
-    }
-
-    sendChatMessage(client, message) {
-        return this.proxyManager.sendChatMessage(client, message);
-    }
-
-    registerPlugin(pluginInfo) {
-        return this.proxyManager.pluginManager.registerPlugin(pluginInfo);
-    }
-    
-    setPluginEnabled(pluginName, enabled) {
-        return this.proxyManager.pluginManager.setPluginEnabled(pluginName, enabled);
-    }
-    
-    isPluginEnabled(pluginName) {
-        return this.proxyManager.pluginManager.isPluginEnabled(pluginName);
-    }
-
-    setPluginDebug(pluginName, debug) {
-        return this.proxyManager.pluginManager.setPluginDebug(pluginName, debug);
-    }
-    
-    isPluginDebugEnabled(pluginName) {
-        return this.proxyManager.pluginManager.isPluginDebugEnabled(pluginName);
-    }
-    
-    getAllPluginStates() {
-        return this.proxyManager.pluginManager.getAllPluginStates();
-    }
-    
-    getLoadedPlugins() {
-        return this.proxyManager.pluginManager.getLoadedPlugins();
-    }
-
-
-    /**
-     * Override emit to filter events for disabled plugins
-     */
-    emit(eventName, ...args) {
-        const listeners = this.listeners(eventName);
-        
-        const enabledListeners = this.proxyManager.pluginManager.filterEnabledListeners(listeners);
-        
-        enabledListeners.forEach(listener => {
-            try {
-                listener(...args);
-            } catch (error) {
-                console.error(`Error in event listener:`, error);
-            }
-        });
-        
-        return this.listenerCount(eventName) > 0;
-    }
-
-
-    /**
-     * Register commands for a plugin/module
-     * @param {string} moduleName - The module name  
-     * @param {object} commands - Commands object
-     */
-    registerCommands(moduleName, commands) {
-        this.proxyManager.commandHandler.register(moduleName, commands);
-    }
-
-    kickPlayer(reason) {
-        this.proxyManager.kickPlayer(reason);
-    }
-}
 
 
 class ProxyManager {
     constructor() {
         this.config = loadConfig();
-        this.proxyAPI = new ProxyAPI(this);
+        this.proxyAPI = new PluginAPI(this);
         this.authManager = new AuthManager(this, BASE_DIR);
         this.commandHandler = new CommandHandler(this);
         this.pluginManager = new PluginManager(this, this.proxyAPI, BASE_DIR);
+        this.gameState = new GameState();
 
         this.server = null;
         this.currentPlayer = null;
@@ -440,17 +344,20 @@ class ProxyManager {
      */
     setupPacketForwarding(loginPacket) {
         const { client, targetClient, username } = this.currentPlayer;
-        
+
+        this.gameState.reset();
+        this.gameState.setLoginPacket(loginPacket);
         let cleanupDone = false;
     
         const doFinalCleanup = () => {
             if (cleanupDone) return;
             cleanupDone = true;
-            
+
             if (this.currentPlayer) {
                 this.proxyAPI.emit('playerLeave', { username, player: this.currentPlayer });
                 this.currentPlayer = null;
             }
+            this.gameState.reset();
         };
 
         client.on('end', (reason) => {
@@ -511,6 +418,7 @@ class ProxyManager {
 
         targetClient.removeAllListeners('packet');
         targetClient.on('packet', (data, meta) => {
+            this.gameState.updateFromServerPacket(meta.name, data);
             const passiveEvent = { username, player: this.currentPlayer, data, meta };
             this.proxyAPI.emit('serverPacketMonitor', passiveEvent);
             
@@ -537,6 +445,10 @@ class ProxyManager {
             position: 0,
             sender: '0'
         });
+    }
+
+    getJoinState() {
+        return this.gameState.getSnapshot();
     }
 
     /**
