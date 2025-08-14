@@ -126,46 +126,6 @@ module.exports = (api) => {
 };
 ```
 
-### Encrypted Configuration
-
-The proxy supports automatic encryption of sensitive configuration values like API keys and passwords. Simply add `encrypted: true` to any text setting in your config schema:
-
-```javascript
-api.configSchema([
-  {
-    label: "API Settings",
-    settings: [
-      {
-        key: "api.secretKey",
-        type: "text",
-        description: "Your secret API key",
-        encrypted: true  // This value will be encrypted automatically
-      },
-      {
-        key: "api.publicUrl",
-        type: "text", 
-        description: "Public API URL"
-        // Not encrypted - stored as plain text
-      }
-    ],
-    defaults: { 
-      api: { secretKey: "", publicUrl: "https://api.example.com" }
-    }
-  }
-]);
-
-// Usage is the same - encryption/decryption is automatic
-const apiKey = api.config.get('api.secretKey');  // Automatically decrypted
-api.config.set('api.secretKey', 'new-key');      // Automatically encrypted
-```
-
-**Security Features:**
-- Uses AES-256-CBC encryption with random IVs
-- Encryption key auto-generated on first launch
-- Key stored securely in `config/.encryption.key`
-- Backward compatible with existing configurations
-- Empty strings are not encrypted for performance
-
 
 ### Plugin API Reference
 
@@ -192,6 +152,7 @@ api.config.set('api.secretKey', 'new-key');      // Automatically encrypted
 - `api.getPlayerTeam(name)` - Get player's team
 
 #### Hypixel API
+// haven't reviewed yet
 
 - `api.getPartyInfo(callback, timeout?)` - Get current party information
 - `api.getPartyInfoAsync(timeout?)` - Get party info with Promise support
@@ -202,9 +163,17 @@ api.config.set('api.secretKey', 'new-key');      // Automatically encrypted
 
 #### Display Names
 
-- `api.setCustomDisplayName(uuid, name)` - Set custom display name
-- `api.clearCustomDisplayName(uuid)` - Clear custom display name
-- `api.clearAllCustomDisplayNames()` - Clear all custom names
+- `api.setDisplayNamePrefix(uuid, prefix)` - Set a prefix before player name
+- `api.appendDisplayNamePrefix(uuid, prefix)` - Add to existing prefix
+- `api.prependDisplayNamePrefix(uuid, prefix)` - Add before existing prefix
+- `api.setDisplayNameSuffix(uuid, suffix)` - Set a suffix after player name
+- `api.appendDisplayNameSuffix(uuid, suffix)` - Add to existing suffix
+- `api.prependDisplayNameSuffix(uuid, suffix)` - Add before existing suffix
+- `api.clearDisplayNamePrefix(uuid)` - Remove prefix for player
+- `api.clearDisplayNameSuffix(uuid)` - Remove suffix for player
+- `api.clearAllDisplayNames()` - Clear all custom prefixes/suffixes
+- `api.getDisplayNamePrefix(uuid)` - Get current prefix for player
+- `api.getDisplayNameSuffix(uuid)` - Get current suffix for player
 
 ### Available Events
 
@@ -222,13 +191,13 @@ For advanced usage, you can intercept packets:
 
 ```javascript
 api.intercept("packet:server:chat", (event) => {
-  // Read packet data
+  // read packet data
   console.log(event.data);
 
-  // Cancel packet (safe packets only)
+  // cancel packet (safe packets only)
   event.cancel();
 
-  // Modify packet (safe packets only)
+  // modify packet (safe packets only)
   event.modify({ ...event.data, message: "Modified!" });
 });
 ```

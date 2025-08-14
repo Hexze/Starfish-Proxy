@@ -248,12 +248,6 @@ class Hypixel {
     return errorMessages[errorCode] || `Unknown error (${errorCode})`;
   }
 
-  /**
-   * Get party information from Hypixel
-   * @param {Function} callback - Callback function that receives the party info
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   * @returns {boolean} - True if request was sent successfully
-   */
   getPartyInfo(callback, timeout = 5000) {
     if (!this.proxy.currentPlayer?.targetClient) {
       callback({
@@ -315,11 +309,6 @@ class Hypixel {
     }
   }
 
-  /**
-   * Get party information with Promise support
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   * @returns {Promise} - Promise that resolves with party info
-   */
   getPartyInfoAsync(timeout = 5000) {
     return new Promise((resolve, reject) => {
       const success = this.getPartyInfo((result) => {
@@ -336,11 +325,6 @@ class Hypixel {
     });
   }
 
-  /**
-   * Check if player is in a party
-   * @param {Function} callback - Callback function that receives boolean result
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   */
   isInParty(callback, timeout = 5000) {
     this.getPartyInfo((result) => {
       if (result.success) {
@@ -351,11 +335,6 @@ class Hypixel {
     }, timeout);
   }
 
-  /**
-   * Get current player's party role
-   * @param {Function} callback - Callback function that receives role string or null
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   */
   getPlayerRole(callback, timeout = 5000) {
     if (
       !this.proxy.currentPlayer?.targetClient ||
@@ -377,12 +356,6 @@ class Hypixel {
     }, timeout);
   }
 
-  /**
-   * Send ping request to Hypixel
-   * @param {Function} callback - Callback function that receives the ping response
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   * @returns {boolean} - True if request was sent successfully
-   */
   getPing(callback, timeout = 5000) {
     if (!this.proxy.currentPlayer?.targetClient) {
       callback({
@@ -437,11 +410,6 @@ class Hypixel {
     }
   }
 
-  /**
-   * Send ping request to Hypixel with Promise support
-   * @param {number} timeout - Timeout in milliseconds (default: 5000)
-   * @returns {Promise} - Promise that resolves with ping response
-   */
   getPingAsync(timeout = 5000) {
     return new Promise((resolve, reject) => {
       const success = this.getPing((result) => {

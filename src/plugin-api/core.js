@@ -55,7 +55,6 @@ class Core {
                     const current = JSON.parse(fs.readFileSync(configPath, 'utf8'));
                     let value = key ? this._getNestedValue(current, key) : current;
                     
-                    // Decrypt encrypted values when retrieving
                     if (key && this._isEncryptedField(key) && typeof value === 'string' && this._isEncryptedData(value)) {
                         value = this._decryptValue(value);
                     }
@@ -70,7 +69,6 @@ class Core {
                 try {
                     const current = JSON.parse(fs.readFileSync(configPath, 'utf8'));
                     
-                    // Encrypt values for encrypted fields
                     let valueToStore = value;
                     if (this._isEncryptedField(key) && typeof value === 'string' && value !== '') {
                         valueToStore = this._encryptValue(value);
@@ -89,7 +87,6 @@ class Core {
                 }
             },
 
-            // Method to set encrypted values explicitly
             setEncrypted: (key, value) => {
                 try {
                     const current = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -109,7 +106,6 @@ class Core {
                 }
             },
 
-            // Method to get decrypted values explicitly
             getDecrypted: (key) => {
                 try {
                     const current = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -176,7 +172,7 @@ class Core {
             return crypto.encrypt(value);
         } catch (error) {
             this.log(`Failed to encrypt value: ${error.message}`);
-            return value; // Fallback to unencrypted
+            return value;
         }
     }
 
@@ -186,7 +182,7 @@ class Core {
             return crypto.decrypt(value);
         } catch (error) {
             this.log(`Failed to decrypt value: ${error.message}`);
-            return value; // Return as-is if decryption fails
+            return value;
         }
     }
 

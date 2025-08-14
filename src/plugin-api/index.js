@@ -950,7 +950,6 @@ class PluginAPI {
             getDisplayNamePrefix: withEnabledCheck((uuid) => mainAPI.displayNames.getPrefix(uuid), 'getDisplayNamePrefix'),
             getDisplayNameSuffix: withEnabledCheck((uuid) => mainAPI.displayNames.getSuffix(uuid), 'getDisplayNameSuffix'),
             
-            // commands
             commands: (commands) => {
                 return mainAPI.commandsModule.register(pluginMetadata.name, commands);
             },
