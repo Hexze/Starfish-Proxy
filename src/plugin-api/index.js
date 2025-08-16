@@ -44,7 +44,7 @@ class PluginAPI {
         this.movementModule = new Movement(proxy, this.core);
         this.miscModule = new Misc(proxy, this.core);
         this.hypixelModule = new Hypixel(proxy, this.core);
-        this.helpersModule = new Helpers(proxy, this.core);
+        this.helpersModule = new Helpers();
 
         this.config = this.core.config;
         this.log = this.core.log.bind(this.core);

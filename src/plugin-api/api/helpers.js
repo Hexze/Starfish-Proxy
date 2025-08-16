@@ -1,10 +1,7 @@
 const https = require("node:https");
 
 class Helpers {
-    constructor(proxy, core) {
-        this.proxy = proxy;
-        this.core = core;
-    }
+    constructor() {}
 
     // Send a http request with ease (async)
     async createHttpRequest(url, method = 'GET', options = {}) {
