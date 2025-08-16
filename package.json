@@ -22,6 +22,7 @@
     "prismarine-auth": "^2.7.0"
   },
   "devDependencies": {
+    "@types/node": "^24.3.0",
     "nexe": "^4.0.0-rc.6"
   }
 }
