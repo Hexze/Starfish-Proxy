@@ -12,6 +12,7 @@ const Misc = require('./api/misc');
 const Hypixel = require('./api/hypixel');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const { getPluginsDir } = require('../utils/paths');
 const { VersionUtils } = require('../utils/version-utils');
 const { DependencyResolver } = require('../utils/dependency-resolver');
@@ -384,9 +385,13 @@ class PluginAPI {
             try {
                 const pluginPath = path.join(pluginsDir, file);
                 
-                delete require.cache[require.resolve(pluginPath)];
-                const plugin = require(pluginPath);
-                
+                const plugin = this.loadPluginFile(pluginPath);
+                if (!plugin) {
+                    console.error(`❌ Heuristics indicate potential security risks in ${file} - skipping`);
+                    skippedPlugins.push(`${file} (potential security risks)`);
+                    continue;
+                }
+
                 const tempMetadata = {
                     name: null,
                     path: pluginPath,
@@ -549,6 +554,7 @@ class PluginAPI {
                 });
                 
                 const pluginAPI = this.createPluginWrapper(pluginMetadata);
+                Object.freeze(pluginAPI);
                 let pluginInstance = null;
                 try {
                     if (typeof plugin.init === 'function') {
@@ -598,7 +604,54 @@ class PluginAPI {
             console.log('No plugins loaded');
         }
     }
-    
+
+    safeRequire(moduleName) {
+        const blacklist = ["fs", "vm", "vm2", "worker_threads", "repl", "ejs", "os", "child_process", "cluster"];
+        if (blacklist.includes(moduleName)) {
+            throw new Error(`Module ${moduleName} is not allowed`);
+        }
+        return require(moduleName);
+    }
+
+    loadPluginFile(pluginPath) {
+        const code = fs.readFileSync(pluginPath, "utf8");
+        if (this.scanPlugin(code)) {
+            console.warn(`Heuristics indicate potential security risks in plugin ${pluginPath} - skipping`);
+            return null;
+        }
+        const sandbox = {};
+        const allGlobals = Object.getOwnPropertyNames(global);
+        const blacklist = ["process"];
+        for (const name of allGlobals) {
+            if (!blacklist.includes(name)) {
+                const desc = Object.getOwnPropertyDescriptor(global, name);
+                if (desc) {
+                    Object.defineProperty(sandbox, name, desc);
+                } else {
+                    sandbox[name] = global[name];
+                }
+            }
+        }
+
+        sandbox.eval = undefined;
+        sandbox.Function = undefined;
+        sandbox.module = { exports: {} };
+        sandbox.exports = sandbox.module.exports;
+        sandbox.require = this.safeRequire;
+
+        vm.createContext(sandbox);
+        vm.runInContext(code, sandbox, { filename: path.basename(pluginPath), timeout: 1000 });
+
+        return sandbox.module.exports;
+    }
+
+    scanPlugin(code) {
+        if (code.match(/\.\s*constructor\b/g)) {
+            return true;
+        }
+        return false;
+    }
+
     createMetadataOnlyWrapper(pluginMetadata) {
         return {
             metadata: (meta) => {
