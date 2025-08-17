@@ -1,6 +1,6 @@
 # Starfish Proxy
 
-A Minecraft proxy server for Hypixel with an advanced plugin system, packet modification capabilities, and built-in security features.
+A Minecraft proxy server for Hypixel with an advanced plugin system, packet modification capabilities, and built-in security features. Designed to provide an alternative to something like Raven's scripting API, but for legit players on any client. 
 
 ## Disclaimer
 
